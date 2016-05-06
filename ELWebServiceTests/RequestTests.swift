@@ -133,16 +133,62 @@ class RequestTests: XCTestCase {
         let components = stringValue.componentsSeparatedByString("=")
         XCTAssertEqual(components[0], "percentEncoded")
         XCTAssertEqual(components[1], "this%20needs%20percent%20encoded")
+
+        let contentType = urlRequest.valueForHTTPHeaderField("Content-Type")
+        XCTAssertNotNil(contentType)
+        XCTAssertEqual(contentType, "application/x-www-form-urlencoded")
     }
 
-    func test_settingParameterEncodingToJSON_setsContentTypeToJSON() {
-        var request = Request(.GET, url: "http://httpbin.org/")
-        
+    func test_parameters_encodedInBodyAsJSON() {
+        var request = Request(.POST, url: "http://httpbin.org/")
+        let parameters = ["x" : "1"]
+        request.parameters = parameters
         request.parameterEncoding = .JSON
-        
-        XCTAssertEqual(request.contentType, Request.ContentType.json)
+
+        let urlRequest = request.urlRequestValue
+
+        let content = urlRequest.HTTPBody
+        XCTAssertNotNil(content)
+        XCTAssertEqual(NSString(data: content!, encoding: NSUTF8StringEncoding)!, "{\"x\":\"1\"}")
+
+        let contentType = urlRequest.valueForHTTPHeaderField("Content-Type")
+        XCTAssertNotNil(contentType)
+        XCTAssertEqual(contentType, "application/json")
     }
-    
+
+    func test_parameterEncoding_canBeSetBackToPercent() {
+        var request = Request(.POST, url: "http://httpbin.org/")
+        let parameters = ["x" : "1"]
+        request.parameters = parameters
+
+        // Setting the encoding to JSON should not "lock in" the body or content type:
+        request.parameterEncoding = .JSON
+        request.parameterEncoding = .Percent
+
+        let urlRequest = request.urlRequestValue
+
+        let content = urlRequest.HTTPBody
+        XCTAssertNotNil(content)
+        XCTAssertEqual(NSString(data: content!, encoding: NSUTF8StringEncoding)!, "x=1")
+
+        let contentType = urlRequest.valueForHTTPHeaderField("Content-Type")
+        XCTAssertNotNil(contentType)
+        XCTAssertEqual(contentType, "application/x-www-form-urlencoded")
+    }
+
+    func test_contentType_explicitValueOverridesImplicitValue() {
+        var request = Request(.POST, url: "http://httpbin.org/")
+        let parameters = ["Percent Encoded" : "this needs percent encoded (%&=)"]
+        request.parameters = parameters
+        request.parameterEncoding = .Percent
+        request.contentType = Request.ContentType.json
+
+        let urlRequest = request.urlRequestValue
+
+        let contentType = urlRequest.valueForHTTPHeaderField("Content-Type")
+        XCTAssertEqual(contentType, "application/json")
+    }
+
     func test_setBody_overwritesExistingBodyData() {
         var request = Request(.POST, url: "http://httpbin.org/")
         let parameters = ["percentEncoded" : "this needs percent encoded"]

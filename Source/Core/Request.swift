@@ -69,6 +69,16 @@ public struct Request {
                 return try? NSJSONSerialization.dataWithJSONObject(parameters, options: NSJSONWritingOptions())
             }
         }
+
+        /// The preferred content type for a body with this encoding.
+        public var preferredContentType: String {
+            switch self {
+            case .Percent:
+                return ContentType.formEncoded
+            case .JSON:
+                return ContentType.json
+            }
+        }
     }
     
     /// A group of static constants for referencing HTTP header field names.
@@ -113,13 +123,7 @@ public struct Request {
     internal(set) var cachePolicy = NSURLRequestCachePolicy.UseProtocolCachePolicy
     
     /// The type of parameter encoding to use when encoding request parameters.
-    public var parameterEncoding = ParameterEncoding.Percent {
-        didSet {
-            if parameterEncoding == .JSON {
-                contentType = ContentType.json
-            }
-        }
-    }
+    public var parameterEncoding = ParameterEncoding.Percent
     
     /// The HTTP `Content-Type` header field value of the request.
     internal(set) var contentType: String? {
@@ -177,7 +181,7 @@ extension Request: URLRequestEncodable {
                     urlRequest.HTTPBody = data
                     
                     if urlRequest.valueForHTTPHeaderField(Headers.contentType) == nil {
-                        urlRequest.setValue(ContentType.formEncoded, forHTTPHeaderField: Headers.contentType)
+                        urlRequest.setValue(parameterEncoding.preferredContentType, forHTTPHeaderField: Headers.contentType)
                     }
                 }
             }
